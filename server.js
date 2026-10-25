@@ -1,7 +1,9 @@
 const express = require('express'), http = require('http'), path = require('path');
 const { WebSocketServer } = require('ws');
 const app = express();
-app.use(express.static(path.join(__dirname, 'public')));
+const fs = require('fs');
+const INDEX = [path.join(__dirname, 'index.html'), path.join(__dirname, 'public', 'index.html')].find(f => fs.existsSync(f));
+app.get('/', (q, r) => INDEX ? r.sendFile(INDEX) : r.status(500).send('index.html is missing from the deployed repo. Upload it next to server.js.'));
 app.get('/health', (q, r) => r.send('ok'));
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server });
