@@ -11,7 +11,7 @@ const wss = new WebSocketServer({ server });
 const SPAWNS = [[0,1.7,6],[8,1.7,10],[-8,1.7,10],[14,1.7,4],[-14,1.7,4],[0,1.7,16],[18,1.7,12],[-18,1.7,12]];
 const spawn = () => SPAWNS[Math.floor(Math.random() * SPAWNS.length)];
 const P = new Map(); let nid = 1;
-const pub = p => ({ id: p.id, name: p.name, cls: p.cls, pos: p.pos, alive: p.alive });
+const pub = p => ({ id: p.id, name: p.name, cls: p.cls, pos: p.pos, alive: p.alive, w: p.w || 0 });
 const board = () => [...P.values()].map(p => ({ id: p.id, name: p.name, k: p.k, d: p.d }));
 const send = (ws, m) => ws.readyState === 1 && ws.send(JSON.stringify(m));
 const all = (m, except) => { const s = JSON.stringify(m); for (const p of P.values()) if (p.ws !== except && p.ws.readyState === 1) p.ws.send(s); };
@@ -28,7 +28,7 @@ wss.on('connection', ws => {
       all({ t: 'join', p: pub(me), board: board() }, ws); return;
     }
     if (!me.joined) return;
-    if (m.t === 's') { const p = v3(m.p); if (!p) return; me.pos = p; all({ t: 's', id: me.id, p, y: +m.y || 0 }, ws); }
+    if (m.t === 's') { const p = v3(m.p); if (!p) return; me.pos = p; me.w = [0, 1, 2].includes(m.w) ? m.w : 0; all({ t: 's', id: me.id, p, y: +m.y || 0, w: me.w, pt: Math.max(-1.5, Math.min(1.5, +m.pt || 0)) }, ws); }
     else if (m.t === 'shot') { const o = v3(m.o), e = v3(m.e); if (o && e) all({ t: 'shot', id: me.id, o, e }, ws); }
     else if (m.t === 'fx') { const p = v3(m.p); if (p) all({ t: 'fx', id: me.id, k: m.k === 's' ? 's' : 'e', p, r: Math.min(8, +m.r || 4) }, ws); }
     else if (m.t === 'hit') {
