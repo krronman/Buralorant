@@ -8,7 +8,7 @@ app.get('/health', (q, r) => r.send('ok'));
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server });
 
-const SPAWNS = [[0,1.7,6],[20,1.7,20],[-20,1.7,15],[15,1.7,8],[-15,1.7,8],[30,1.7,0],[-30,1.7,5],[0,1.7,30],[35,1.7,-20],[-35,1.7,-15]];
+const SPAWNS = [[0,1.7,6],[8,1.7,10],[-8,1.7,10],[14,1.7,4],[-14,1.7,4],[0,1.7,16],[18,1.7,12],[-18,1.7,12]];
 const spawn = () => SPAWNS[Math.floor(Math.random() * SPAWNS.length)];
 const P = new Map(); let nid = 1;
 const pub = p => ({ id: p.id, name: p.name, cls: p.cls, pos: p.pos, alive: p.alive });
