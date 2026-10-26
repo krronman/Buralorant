@@ -55,24 +55,79 @@ const $=id=>document.getElementById(id),clamp=(v,a,b)=>Math.max(a,Math.min(b,v))
 const renderer=new THREE.WebGLRenderer({antialias:true});
 renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.setSize(innerWidth,innerHeight);
 renderer.shadowMap.enabled=true;document.body.prepend(renderer.domElement);
-const scene=new THREE.Scene();scene.background=new THREE.Color(0x9ec7e8);scene.fog=new THREE.Fog(0x9ec7e8,35,120);
-const cam=new THREE.PerspectiveCamera(75,innerWidth/innerHeight,0.03,200);cam.rotation.order='YXZ';scene.add(cam);
+const scene=new THREE.Scene();scene.background=new THREE.Color(0x9ec7e8);scene.fog=new THREE.Fog(0xcfe6ff,120,420);
+const cam=new THREE.PerspectiveCamera(75,innerWidth/innerHeight,0.03,700);cam.rotation.order='YXZ';scene.add(cam);
 scene.add(new THREE.HemisphereLight(0xffffff,0x556655,.8));
-const sun=new THREE.DirectionalLight(0xfff2d8,.9);sun.position.set(20,40,10);sun.castShadow=true;
-sun.shadow.camera.left=-50;sun.shadow.camera.right=50;sun.shadow.camera.top=50;sun.shadow.camera.bottom=-50;sun.shadow.mapSize.set(2048,2048);scene.add(sun);
+const sun=new THREE.DirectionalLight(0xfff2d8,.9);sun.position.set(30,70,20);sun.castShadow=true;
+sun.shadow.camera.left=-75;sun.shadow.camera.right=75;sun.shadow.camera.top=75;sun.shadow.camera.bottom=-75;sun.shadow.mapSize.set(2048,2048);scene.add(sun);
 
 const hitables=[],obst=[];
-// ground
-const c=document.createElement('canvas');c.width=c.height=128;const g2=c.getContext('2d');
-g2.fillStyle='#6f7d5a';g2.fillRect(0,0,128,128);g2.fillStyle='#667452';g2.fillRect(0,0,64,64);g2.fillRect(64,64,64,64);
-const gt=new THREE.CanvasTexture(c);gt.wrapS=gt.wrapT=THREE.RepeatWrapping;gt.repeat.set(50,50);gt.magFilter=THREE.NearestFilter;
-const ground=new THREE.Mesh(new THREE.PlaneGeometry(100,100),new THREE.MeshStandardMaterial({map:gt,roughness:1}));
-ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;scene.add(ground);hitables.push(ground);
-function solid(w,h,d,x,z,col){const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),new THREE.MeshStandardMaterial({color:col,roughness:.9}));
- m.position.set(x,h/2,z);m.castShadow=m.receiveShadow=true;scene.add(m);hitables.push(m);obst.push({a:x-w/2,b:x+w/2,c:z-d/2,d:z+d/2,h:h+1.7});}
-solid(100,10,1,0,-50,0x7a7a7a);solid(100,10,1,0,50,0x7a7a7a);solid(1,10,100,-50,0,0x7a7a7a);solid(1,10,100,50,0,0x7a7a7a);
-[[-6,-8],[5,-12],[-2,-20],[9,-26],[-10,-30],[2,-4]].forEach(([x,z],i)=>solid(3.2,1.9+(i%2)*.9,3.2,x,z,i%2?0x8b6b3e:0x6b5a3a));
-solid(10,3,.9,-4,-14,0x5d6d7a);solid(8,3,.9,8,-36,0x5d6d7a);
+// ===== SKY TEMPLE MAP (from the reference image) =====
+const K=.09,X=p=>(p-724)*K,Z=p=>(p-543)*K,FL=[],HO=[];
+const SPL=[[0,23],[0,-26],[-31,5],[27.5,9],[-20,18],[20,18],[-46,-19],[43,-31],[0,-13]];
+const WH=0xece8dc,GD=0xd8b24a;
+function walk(x,z){let ok=false;for(const r of FL)if(x>=r[0]&&x<=r[2]&&z>=r[1]&&z<=r[3]){ok=true;break;}if(!ok)return false;for(const r of HO)if(x>r[0]&&x<r[2]&&z>r[1]&&z<r[3])return false;return true;}
+function fallRespawn(){const p=SPL[Math.floor(Math.random()*SPL.length)];pos.set(p[0],1.7,p[1]);vy=0;vel.set(0,0,0);note('FELL OFF THE SKY ISLAND');}
+const mt=(c,o)=>new THREE.MeshStandardMaterial(Object.assign({color:c,roughness:.8},o||{}));
+function put(m,x,y,z,p){m.position.set(x,y,z);m.castShadow=m.receiveShadow=true;(p||scene).add(m);return m;}
+function bx(w,h,d,x,y,z,c,o){return put(new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mt(c,o)),x,y,z);}
+function cy(r,h,x,y,z,c,o,r2,p){return put(new THREE.Mesh(new THREE.CylinderGeometry(r2===undefined?r:r2,r,h,20),mt(c,o)),x,y,z,p);}
+function solid(w,h,d,x,z,c){const m=bx(w,h,d,x,h/2,z,c);hitables.push(m);obst.push({a:x-w/2,b:x+w/2,c:z-d/2,d:z+d/2,h:h+1.7});}
+function rectPx(x1,y1,x2,y2,h,c){solid((x2-x1)*K,h,(y2-y1)*K,X((x1+x2)/2),Z((y1+y2)/2),c);}
+// sky + clouds
+{const c=document.createElement('canvas');c.width=2;c.height=256;const g=c.getContext('2d'),gr=g.createLinearGradient(0,0,0,256);
+ gr.addColorStop(0,'#3f86d8');gr.addColorStop(.5,'#8fc3f2');gr.addColorStop(1,'#e3f1ff');g.fillStyle=gr;g.fillRect(0,0,2,256);
+ scene.add(new THREE.Mesh(new THREE.SphereGeometry(600,24,16),new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(c),side:THREE.BackSide,fog:false})));}
+{const c=document.createElement('canvas');c.width=c.height=128;const g=c.getContext('2d'),r=g.createRadialGradient(64,64,0,64,64,64);
+ r.addColorStop(0,'rgba(255,255,255,.95)');r.addColorStop(1,'rgba(255,255,255,0)');g.fillStyle=r;g.fillRect(0,0,128,128);const t=new THREE.CanvasTexture(c);
+ for(let i=0;i<120;i++){const a=Math.random()*6.283,d=30+Math.random()*340,s=new THREE.Sprite(new THREE.SpriteMaterial({map:t,transparent:true,opacity:.8,depthWrite:false}));
+  s.position.set(Math.cos(a)*d,-48+Math.random()*28+(Math.random()<.15?80:0),Math.sin(a)*d);s.scale.set(70+Math.random()*90,32+Math.random()*30,1);scene.add(s);}}
+// main floor with four sky holes around the fountain
+const HP=[[540,340,680,455],[770,340,905,455],[540,570,680,690],[770,570,905,690]];
+{const c=document.createElement('canvas');c.width=c.height=128;const g=c.getContext('2d');g.fillStyle='#ece8dc';g.fillRect(0,0,128,128);g.strokeStyle='#d3cdbb';g.lineWidth=3;g.strokeRect(0,0,128,128);
+ const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(.25,.25);
+ const x1=X(130),x2=X(1270),z1=Z(160),z2=Z(880),sh=new THREE.Shape();sh.moveTo(x1,-z1);sh.lineTo(x2,-z1);sh.lineTo(x2,-z2);sh.lineTo(x1,-z2);sh.lineTo(x1,-z1);
+ for(const h of HP){const p=new THREE.Path(),a=X(h[0]),b=Z(h[1]),c2=X(h[2]),d=Z(h[3]);p.moveTo(a,-b);p.lineTo(c2,-b);p.lineTo(c2,-d);p.lineTo(a,-d);p.lineTo(a,-b);sh.holes.push(p);HO.push([a,b,c2,d]);}
+ const geo=new THREE.ExtrudeGeometry(sh,{depth:3,bevelEnabled:false});geo.rotateX(-Math.PI/2);geo.translate(0,-3,0);
+ const m=new THREE.Mesh(geo,new THREE.MeshStandardMaterial({map:t,roughness:.9}));m.receiveShadow=true;scene.add(m);hitables.push(m);FL.push([x1,z1,x2,z2]);}
+function slab(x1,y1,x2,y2){const a=X(x1),b=Z(y1),c=X(x2),d=Z(y2),m=bx(c-a,3,d-b,(a+c)/2,-1.52,(b+d)/2,0xe6e2d6);hitables.push(m);FL.push([a,b,c,d]);}
+[[560,30,890,160],[460,880,990,1000],[680,1000,770,1060],[10,320,90,420],[90,360,130,395],[1270,360,1360,395],[1360,320,1440,420],[40,730,130,850],[1270,700,1370,850]].forEach(r=>slab(...r));
+for(let i=0;i<16;i++){const h=22+Math.random()*16,m=new THREE.Mesh(new THREE.ConeGeometry(9+Math.random()*7,h,7),mt(0xb9b6ae,{flatShading:true}));
+ m.rotation.x=Math.PI;m.position.set(-48+Math.random()*92,-3-h/2,-30+Math.random()*58);scene.add(m);}
+// north temple
+{const tz=-41;solid(26,10,9,0,tz,WH);bx(27,1,10,0,10.5,tz,GD);bx(5,6,.2,0,3,tz+4.6,0x8fb8e8);
+ const r=new THREE.Mesh(new THREE.ConeGeometry(17,7,4),mt(0xf4f1ea));r.rotation.y=Math.PI/4;r.scale.set(1.05,1,.4);put(r,0,15,tz);
+ for(let i=-5;i<=5;i++)cy(.55,9,i*2.3,4.5,tz+5.6,WH);bx(8,.04,12,0,.02,-31,0x3b6fc4);bx(26,.4,3,0,.2,tz+6,GD);}
+// towers (solid) and open gazebos
+function tower(px,py,r,h,sol){const x=X(px),z=Z(py),g=new THREE.Group();g.position.set(x,0,z);scene.add(g);let body=null;
+ if(sol){body=cy(r*1.05,h,0,h/2,0,WH,null,r,g);}else{for(let k=0;k<8;k++){const a=k*Math.PI/4;cy(.3,h,Math.cos(a)*r,h/2,Math.sin(a)*r,WH,null,.3,g);}}
+ cy(r*1.12,.5,0,h,0,GD,null,r*1.12,g);
+ const d=put(new THREE.Mesh(new THREE.SphereGeometry(r*1.1,20,10,0,Math.PI*2,0,Math.PI/2),mt(GD,{metalness:.5,roughness:.35})),0,h+.25,0,g);
+ if(sol){hitables.push(body);obst.push({a:x-r*.85,b:x+r*.85,c:z-r*.85,d:z+r*.85,h:h+1.7});}}
+tower(505,850,5,9,1);tower(925,850,5,9,1);
+[[45,370],[1405,370],[105,790],[1305,765]].forEach(p=>tower(p[0],p[1],3.6,5.5,0));
+// fountain
+{const fz=-3;const b=cy(5.2,.9,0,.45,fz,WH);hitables.push(b);cy(4.5,.12,0,.92,fz,0x6ec6ff,{emissive:0x2a6fa8,roughness:.2});cy(1.1,2.4,0,1.9,fz,WH);
+ put(new THREE.Mesh(new THREE.ConeGeometry(.9,6,8),mt(GD,{metalness:.6,roughness:.3})),0,6,fz);obst.push({a:-4,b:4,c:fz-4,d:fz+4,h:3.2});}
+// low rails on the inner sides of the sky holes
+HO.forEach((h,i)=>{const ix=i%2?h[0]:h[2],iz=i<2?h[3]:h[1];solid(.4,1.1,h[3]-h[1],ix,(h[1]+h[3])/2,0xf4f1ea);solid(h[2]-h[0],1.1,.4,(h[0]+h[2])/2,iz,0xf4f1ea);});
+bx(4.5,.05,13,X(1095),.03,Z(508),0x6ec6ff,{emissive:0x2a6fa8,roughness:.2});
+// wings: walls, blocks and crates  [x1,y1,x2,y2,height,type 0 stone 1 dark 2 tan]
+const BC=[0xe8e4d8,0x4b4d52,0x9a8760];
+[[160,445,300,465,2.4,0],[255,365,375,395,2.4,0],[315,262,392,305,2.8,0],[350,408,382,446,2.2,1],[185,495,228,538,2,1],[235,538,278,562,2,1],[255,512,440,540,2.2,0],[285,590,312,626,2.4,1],[435,285,466,302,1.8,1],[432,500,444,560,2.6,0],[455,640,470,665,2,2],
+ [1005,315,1110,345,2.4,0],[1005,350,1052,386,2.2,1],[1065,225,1160,265,2.8,0],[1200,255,1255,300,2.4,0],[1265,190,1305,216,2,2],[1000,570,1020,602,2.2,1],[975,675,1000,708,2.2,1],[1030,735,1052,768,2.2,1],[1095,690,1122,728,2,2],[1195,530,1216,552,2,1],[1155,380,1190,405,1.8,1],
+ [600,740,616,795,2.4,1],[825,742,842,795,2.4,1],[640,715,690,730,1.2,0],[760,715,810,730,1.2,0]].forEach(r=>rectPx(r[0],r[1],r[2],r[3],r[4],BC[r[5]]));
+// trees
+function tree(px,py,s,big){const x=X(px),z=Z(py);cy(.25*s,1.4*s,x,.7*s,z,0x6b4a2b);
+ put(big?new THREE.Mesh(new THREE.SphereGeometry(2.8*s,12,10),mt(0x4f8a3c)):new THREE.Mesh(new THREE.ConeGeometry(.9*s,4.5*s,8),mt(0x2f6b3a)),x,big?1.4*s+2.4*s:1.4*s+2.2*s,z);}
+[[410,370],[525,350],[1255,395],[920,360],[165,410],[395,215],[1040,150],[1245,240],[665,820],[780,820],[525,745],[925,745],[1100,800],[430,760],[1255,590],[200,430]].forEach(p=>tree(p[0],p[1],1));
+tree(305,690,1.2,1);tree(1330,150,1,1);tree(150,150,1,1);
+// floating decor islands and waterfalls
+function island(px,py,s,y){const g=new THREE.Group();g.position.set(X(px),y,Z(py));scene.add(g);cy(3.6*s,.8,0,-.4,0,0xe3e0d6,null,3.6*s,g);
+ const r=put(new THREE.Mesh(new THREE.ConeGeometry(3.6*s,7*s,7),mt(0xb9b6ae,{flatShading:true})),0,-4.2*s,0,g);r.rotation.x=Math.PI;
+ cy(.7*s,3*s,0,1.5*s,0,WH,null,.7*s,g);put(new THREE.Mesh(new THREE.SphereGeometry(1*s,12,6,0,Math.PI*2,0,Math.PI/2),mt(GD,{metalness:.5})),0,3*s,0,g);}
+[[180,80,1.3,-2],[405,40,1,4],[1040,25,1,6],[1385,90,1.4,-1],[25,660,1,0],[160,950,1.5,-4],[375,1020,1,-6],[1100,970,1.4,-5],[1295,985,1.1,-3],[1420,650,1,2],[1320,560,.9,4]].forEach(a=>island(...a));
+[[115,420],[140,420],[205,840],[1190,880],[1320,430],[1375,190],[1300,600]].forEach(p=>{const m=new THREE.Mesh(new THREE.BoxGeometry(.9,45,.35),new THREE.MeshBasicMaterial({color:0x9fd8ff,transparent:true,opacity:.7}));m.position.set(X(p[0]),-22,Z(p[1]));scene.add(m);});
 // targets
 const targets=[];
 function mkTarget(x,z,mv){const m=new THREE.MeshStandardMaterial({color:0xc0392b,roughness:.7}),g=new THREE.Group();
@@ -81,7 +136,7 @@ function mkTarget(x,z,mv){const m=new THREE.MeshStandardMaterial({color:0xc0392b
  const base=new THREE.Mesh(new THREE.CylinderGeometry(.5,.5,.2,14),new THREE.MeshStandardMaterial({color:0x333333}));base.position.y=.1;
  [body,head,base].forEach(o=>{o.userData.t=g;o.castShadow=true;hitables.push(o)});g.add(body,head,base);
  g.position.set(x,0,z);g.scale.setScalar(1.6);g.userData={hp:100,m,x0:x,mv,ph:Math.random()*6,down:0,fl:0};scene.add(g);targets.push(g);}
-[[-8,-18,0],[-3,-24,1],[3,-18,0],[8,-21,1],[-12,-36,0],[0,-40,1],[12,-34,0],[-6,-44,1],[6,-46,0]].forEach(a=>mkTarget(...a));
+[[0,-27,0],[0,-20,1],[-22,-4,0],[22,-4,1],[-36,14,0],[40,14,1],[0,12,0],[-14,24,0],[14,24,0]].forEach(a=>mkTarget(...a));
 
 // M4A1 model (barrel points to -Z)
 const gun=new THREE.Group();cam.add(gun);let cur=new THREE.Group();gun.add(cur);
@@ -192,7 +247,7 @@ function fx(dt){if(!cls)return;buff=Math.max(0,buff-dt);
   e.innerHTML='<b>'+k+'</b> '+nm[k]+'<br>'+(on?(k==='E'?buff.toFixed(1)+'s':'EQUIPPED'):cdn[k]>0?cdn[k].toFixed(1)+'s':'READY');}}
 let ammo=MAG,reserve=120,reloading=false,rt=0,auto=true,cd=0,heat=0,kick=0,rp=0,ryaw=0;
 let yaw=0,pitch=0,ads=0,adsOn=false,playing=false,lockOK=false,down=false,pressed=false,hits=0,heads=0,bob=0,t0=0;
-const pos=new THREE.Vector3(0,1.7,6),vel=new THREE.Vector3();let vy=0,onGround=true;
+const pos=new THREE.Vector3(0,1.7,23),vel=new THREE.Vector3();let vy=0,onGround=true;
 const keys={};
 const ray=new THREE.Raycaster(),holes=[],tracers=[],hand0=new THREE.Vector3(0,-.05,-.28);
 const holeGeo=new THREE.CircleGeometry(.05,8),holeMat=new THREE.MeshBasicMaterial({color:0x111111,polygonOffset:true,polygonOffsetFactor:-4});
@@ -260,7 +315,7 @@ function update(dt,t){
   if(wish.lengthSq()>0)wish.normalize().multiplyScalar(sp);
   vel.lerp(wish,Math.min(1,dt*10));
   pos.addScaledVector(vel,dt);
-  vy-=14*dt;if(cls==='jett'&&keys.Space&&vy<0&&!onGround)vy=Math.max(vy,-2);pos.y+=vy*dt;if(pos.y<=1.7){pos.y=1.7;vy=0;onGround=true;}
+  vy-=14*dt;if(cls==='jett'&&keys.Space&&vy<0&&!onGround)vy=Math.max(vy,-2);const py0=pos.y;pos.y+=vy*dt;if(py0>=1.69&&pos.y<=1.7&&walk(pos.x,pos.z)){pos.y=1.7;vy=0;onGround=true;}else onGround=false;if(pos.y<-40)fallRespawn();
   for(const o of obst){const cx=clamp(pos.x,o.a,o.b),cz=clamp(pos.z,o.c,o.d),dx=pos.x-cx,dz=pos.z-cz,dd=Math.hypot(dx,dz);
    if(pos.y<(o.h||2.4)&&dd<.45){if(dd>0){pos.x+=dx/dd*(.45-dd);pos.z+=dz/dd*(.45-dd);}else pos.x=o.a-.45;}}
   bob+=vel.length()*dt*1.6;
